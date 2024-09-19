@@ -1,9 +1,10 @@
 import os
 import sys
+import fnmatch
 import access_functions 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
+# Note, Chris recommends to access/query openneuro using: datalad install -r ///openneuro and find {...linux... functions...}
 def process_dataset(data_id, output_fold):
     """
     Process a single dataset: download files and save them locally.
@@ -31,7 +32,7 @@ def process_dataset(data_id, output_fold):
     if response:
         files_urls = access_functions.extract_filenames_and_urls(response)
         for info in files_urls:
-            if info["filename"] in ["participants.json", "participants.tsv", "dataset_description.json"]:
+            if info["filename"] in ["participants.json", "participants.tsv", "dataset_description.json"] or fnmatch.fnmatch(info["filename"], '*_events.json'):
                 for url in info["urls"]:
                     access_functions.download_file(url, f"{dataset_out}/{info['filename']}")
     else:
@@ -39,7 +40,7 @@ def process_dataset(data_id, output_fold):
 
 if __name__ == "__main__":
     access_token_path = os.path.join(os.path.dirname(__file__),'..','api_key.txt')
-    output_fold = os.path.join(os.path.dirname(__file__),'..','outdata')
+    output_fold = os.path.join(os.path.dirname(__file__),'..','..','outdata')
 
     try:
         with open("api_key.txt") as f:
