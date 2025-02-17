@@ -5,3 +5,11 @@ __pycache__/access_functions.cpython-39.pyc
 __pycache__/access_functions.cpython-39.pyc
 api_key.txt
 .DS_Store
+out_data/final_basics_summary.csv
+out_data/final_counts_summary.csv
+out_data/final_descriptors.csv
+out_data/final_events.csv
+out_data/final_participants.csv
+scripts/evaluating_files-values.ipynb
+scripts/__pycache__/check_files.cpython-311.pyc
+scripts/__pycache__/access_functions.cpython-311.pyc
