@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from bids import BIDSLayout
 from bids.exceptions import BIDSConflictingValuesError, BIDSValidationError
+from pathlib import Path
 
 def basic_layout(root_dir: str, open_id: str) -> BIDSLayout:
     """
@@ -12,65 +13,59 @@ def basic_layout(root_dir: str, open_id: str) -> BIDSLayout:
 
     Parameters:
     root_dir (str): The root directory where BIDS datasets are stored.
-    study (str): The study ID to load.
+    open_id (str): The study ID to load.
 
     Returns:
     BIDSLayout: A BIDSLayout object for the specified study.
     """
-    study_path = os.path.join(root_dir,open_id)
+    study_path = Path(root_dir) / open_id  
     
     try:
         bids_layout = BIDSLayout(study_path, is_derivative=False, reset_database=True)
         dir_type = "bids_input"
 
-        if  not bids_layout.get_subjects():
+        if not bids_layout.get_subjects():
             bids_layout = BIDSLayout(study_path, is_derivative=True)
             dir_type = "bids_derivative"
 
         tasks = bids_layout.get_tasks()
-        non_rest = [task for task in tasks if not task.startswith("rest")]
+        non_rest = [task for task in tasks if not task.lower().startswith("rest")]
         subs = bids_layout.get_subjects()
         
         runs = bids_layout.get_runs()
         if not runs:
-            runs = [1]  # Default to a single run if none exist
+            runs = [1]  # Default to a single run if none exist (pybids sets entities to be sparse)
 
         sessions = bids_layout.get_sessions()
         if not sessions:
-            sessions = ["01"]  # Default to session '01' if none exist
+            sessions = ["01"]  # Default to session '01' if none exist (pybids sets entities to be sparse)
 
     except Exception as e:
         print("Basic Layout error:", e)
-        bids_layout = subs = tasks = non_rest = runs = sessions = dir_type = "bids_error"
+        bids_layout = None
+        subs = []
+        tasks = []
+        non_rest = []
+        runs = []
+        sessions = []
+        dir_type = "bids_error"
     
     return bids_layout, subs, tasks, non_rest, runs, sessions, dir_type
 
 
-def check_basics(root_dir: str, study: str, 
+def check_basics(layout_bids: BIDSLayout, study: str, 
                 files_to_check: list = ["CHANGES", "README", "participants.json", 
-                                        "participants.tsv", "dataset_description.json"]) -> pd.DataFrame:
-    """
-    Check if top-level files exist in a BIDS dataset for a given list of studies.
-    
-    Parameters:
-    root_dir (str): The root directory where BIDS datasets are stored.
-    study (str): List of study IDs to check.
-    files_to_check (list): List of files to check for in the BIDS dataset.
-
-    Returns:
-    pd.DataFrame: A DataFrame indicating 1) study ID, 2) file name, 3) location (top/subj lvl), 4) the presence (1) or absence (0) of files.
-    """
-
+                "participants.tsv", "dataset_description.json", "scans.tsv", "sessions.tsv"]) -> pd.DataFrame:
     try:
-        study_dir = os.path.join(root_dir, study)
-        path = study_dir
-        layout = BIDSLayout(path, reset_database=True)
+        layout = layout_bids
         
         tasks = layout.get_tasks()
-        non_rest = [task for task in tasks if not task.startswith("rest")]
+        non_rest = [task for task in tasks if not task.lower().startswith("rest")]
         
         study_files_to_check = files_to_check.copy()
+        
         if non_rest:
+        # If not resting state task, it is recommended they include .json and .tsv files for bold/events
             for task in non_rest:
                 study_files_to_check.extend([
                     f"task-{task}_events.json",
@@ -81,22 +76,39 @@ def check_basics(root_dir: str, study: str,
         file_status = []
         file_n = []
         for file in study_files_to_check:
-            n_files = []
-            if layout.get_file(file):
+            if file == 'scans.tsv':
+                scans_files = layout.get(suffix='scans', extension='tsv', return_type='file') or []
+                status = "lower" if scans_files else "missing"
+                n_files = len(scans_files)
+            
+            elif file == 'sessions.tsv':
+                sessions_files = layout.get(suffix='sessions', extension='tsv', return_type='file') or []
+                status = "lower" if sessions_files else "missing"
+                n_files = len(sessions_files)
+            
+            elif layout.get_file(file):
                 status = "top"
                 n_files = 1
+            
             elif (task_lab := file.split("_")[0].replace("task-", "")) in non_rest:
                 file_exten = os.path.splitext(file)[1]
                 task_files = layout.get(task=task_lab, suffix="events", extension=file_exten, return_type="file") or []
                 status = "func" if task_files else "missing"
                 n_files = len(task_files)
+            
             else:
                 status = "missing"
                 n_files = 0
+            
             file_status.append(status)
             file_n.append(n_files)
         
-        filelist_loc = pd.DataFrame({"study_id": study, "file": study_files_to_check, "location": file_status, "n_files": file_n})
+        filelist_loc = pd.DataFrame({
+            "study_id": study,
+            "file": study_files_to_check,
+            "location": file_status,
+            "n_files": file_n
+        })
         filelist_loc["presence"] = np.where(filelist_loc["location"] == "missing", 0, 1)
 
     except BIDSConflictingValuesError as e:
@@ -115,6 +127,7 @@ def check_basics(root_dir: str, study: str,
             {"study_id": [study], "file": [None], "location": [None], "n_files": [None], "presence": ["bids_conflict_error"]}
         )
     return filelist_loc
+
 
 
 # Compile run, task, file information
@@ -155,13 +168,13 @@ def compile_study_df(open_id, layout, subs, tasks, runs, sessions, type_dir):
         "num_runs": [len(runs)],
         "num_sessions": [len(sessions)],
         "max_sessions": [max((len(layout.get(return_type='id', target='session', subject=sub)) for sub in subs),
-                                            default=1  # Set a default value in case of an empty sequence
+                                            default=1  # default in of empty sequence
                                             )],
         "min_sessions": [min((len(layout.get(return_type='id', target='session', subject=sub)) for sub in subs),
-                                            default=1  # Set a default value in case of an empty sequence
+                                            default=1  # default in of empty sequence
                                             )],
         "tasks": [tasks],
-        "nonrest_tasks": [[task for task in tasks if not task.startswith("rest")]],
+        "nonrest_tasks": [[task for task in tasks if not task.lower().startswith("rest")]],
         "nifti_exists": [int(bool(layout.get(extension="nii.gz", return_type='file')))],
         "dwi_exists": [int(bool(layout.get(suffix="dwi", return_type='file')))],
         "t1w_exists": [int(bool(layout.get(suffix="T1w", return_type='file')))],
@@ -171,7 +184,6 @@ def compile_study_df(open_id, layout, subs, tasks, runs, sessions, type_dir):
     
     return pd.DataFrame(data)
 
-    
      
 # compile dataset description information, key value pairs
 def create_df_descriptor(layout, open_id):
@@ -281,4 +293,55 @@ def process_event_data(layout, open_id, task, events_json_exists=True):
     return eventsdf_long
 
 
+# process open neuro folder 
+def process_study(open_neuro_id, datadir):
+    print(f"Processing {open_neuro_id}...")  
+    basics_df = pd.DataFrame()  # initialize to avoid undefined later
 
+    try:
+        study_layout, study_subs, study_tasks, study_nonrest, study_runs, study_sessions, dir_type = basic_layout(datadir, open_neuro_id)
+        basics_df = check_basics(layout_bids=study_layout, study=open_neuro_id)
+    except Exception as e:
+        print("BIDS layout error:", e)
+        study_layout = None
+        study_subs = study_tasks = study_nonrest = study_runs = study_sessions = dir_type = None
+
+    result = {
+        "basics": basics_df,
+        "compilesumm": None,
+        "descriptor": None,
+        "participant": None,
+        "events": []
+    }
+
+    if study_layout and study_layout != "bids_error":
+        result["compilesumm"] = compile_study_df(open_id=open_neuro_id, layout=study_layout, subs=study_subs, 
+                                                 tasks=study_tasks, runs=study_runs, sessions=study_sessions, type_dir=dir_type)
+        result["descriptor"] = create_df_descriptor(layout=study_layout, open_id=open_neuro_id)
+
+        # Helper to safely check presence in basics_df
+        def file_present(filename):
+            matched = basics_df.loc[basics_df["file"] == filename, "presence"]
+            return bool(matched.values[0]) if not matched.empty else False
+
+        if file_present("participants.tsv"):
+            part_json_exists = file_present("participants.json")
+            try:
+                result["participant"] = process_participant_data(layout=study_layout, open_id=open_neuro_id, part_json_exists=part_json_exists)
+            except UnicodeDecodeError:
+                print(f"Skipping {open_neuro_id} due to encoding error in participants.tsv")
+            except Exception as e:
+                print(f"Unexpected error processing {open_neuro_id}: {e}")
+
+        if study_nonrest:
+            for task_name in study_nonrest:
+                try:
+                    task_json_exists = file_present(f"task-{task_name}_events.json")
+                    task_tsv_exists = file_present(f"task-{task_name}_events.tsv")
+                    if task_tsv_exists:
+                        events_df = process_event_data(layout=study_layout, open_id=open_neuro_id, task=task_name, events_json_exists=task_json_exists)
+                        result["events"].append(events_df)
+                except Exception as e:
+                    print(f"Error obtaining events for {open_neuro_id}, task: {task_name}. See: {e}")
+    
+    return result

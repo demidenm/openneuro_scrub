@@ -1,0 +1,49 @@
+[project]
+name = "openneuro_scrub"
+version = "0.1.0"
+description = "A tool for downloading and analyzing OpenNeuro datasets with BIDS Stats Models: FitLins"
+readme = "README.md"
+authors = [
+    { name = "Michael Demidenko", email = "demidenko.michael@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyzmq==26.4.0", # avoids build error with 27.0.0
+    "numpy",
+    "pandas",
+    "datalad>=0.16.0",
+    "matplotlib",
+    "seaborn",
+    "nbformat",
+    "IPython",
+    "jupyter",
+    "notebook",
+    "awscli",
+    "wordcloud",
+    "pybids",
+    "argparse",
+    "awscli"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8"
+]
+
+[project.scripts]
+openneuro_scrub = "openneuro_scrub:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+packages = ["openneuro_scrub"]  # Explicitly point to your top-level package
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
+
