@@ -96,21 +96,30 @@ if __name__ == "__main__":
     # 1. File Type Percentage Analysis
     print("Creating file type percentage plot...")
     if all_basics is not None:
+        # If 'presence' has 'bids_conflict_error', set 'file' to 'bids_error' and 'presence' to 1
+        all_basics.loc[all_basics['presence'] == 'bids_conflict_error', 'file'] = 'bids_error'
+        all_basics.loc[all_basics['presence'] == 'bids_conflict_error', 'presence'] = 1
+
         all_basics["file_list"] = all_basics["file"].str.replace(
             r"(task-)[^_]+(_(events|bold)\.(tsv|json))", r"\1*\2", regex=True
         )
         all_basics["presence"] = pd.to_numeric(all_basics["presence"], errors="coerce")
         
+        # Calculate percentage of unique studies that have each file type
         percent_type = (
-            all_basics.groupby("file_list", as_index=False)["presence"]
-            .mean()
-            .assign(percent=lambda df: df["presence"] * 100)
-            .rename(columns={"file_list": "type"})
+            all_basics[all_basics["presence"] == 1]  # Only files that exist
+            .groupby("file_list")["study_id"]
+            .nunique()  # Count unique studies with this file
+            .reset_index()
+            .assign(percent=lambda df: (df["study_id"] / all_basics["study_id"].nunique()) * 100)
+            .rename(columns={"file_list": "type", "study_id": "unique_studies"})
             .sort_values(by="percent", ascending=False)
         )
         
         plt.figure(figsize=(12, 8))
-        plt.bar(percent_type['type'], percent_type['percent'])
+        # orange for bids_error, steelblue for others
+        colors = ['orange' if file_type == 'bids_error' else 'steelblue' for file_type in percent_type['type']]
+        plt.bar(percent_type['type'], percent_type['percent'], color=colors)
         plt.xlabel('')
         plt.ylabel('Percentage Exists (%)')
         plt.title('Percentage of Folders Containing Each File Type\nOpenNeuro Datasets')
@@ -270,27 +279,8 @@ if __name__ == "__main__":
             "events-freq_top-20words.png"
         )
 
-    # 9. Participant Word Cloud
-    print("Creating participant word cloud...")
-    if all_participants is not None:
-        import unicodedata
-        all_participants['key'] = all_participants['key'].apply(
-            lambda x: unicodedata.normalize('NFKD', str(x)).encode('ascii', 'ignore').decode('ascii')
-        )
-        
-        freq_words = Counter(all_participants['key'])
-        
-        wordcloud = WordCloud(width=800, height=400, background_color='white', 
-                            colormap='viridis').generate_from_frequencies(freq_words)
-        
-        plt.figure(figsize=(12, 6))
-        plt.imshow(wordcloud, interpolation='bilinear')
-        plt.axis('off')
-        plt.title('OpenNeuro: Wordcloud of column names in participants.tsv files')
-        plt.tight_layout()
-        save_plot("participant-wordcloud.png")
 
-    # 10. Create multi-panel counts, time figure for open-neuor
+    # 9. Create multi-panel counts, time figure for open-neuor
     print("Creating multi-repo growth plot of openneuro datasets...")
     openneuro_joe['made_public'] = pd.to_datetime(openneuro_joe['made_public'])
     openneuro_joe = openneuro_joe.dropna(subset=['made_public'])

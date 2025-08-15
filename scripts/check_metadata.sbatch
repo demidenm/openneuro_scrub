@@ -2,9 +2,9 @@
 #
 #SBATCH --job-name=metadata_check
 #SBATCH --array=1 # 
-#SBATCH --time=12:00:00 # for the initial run, ~1300 datasets, requires a lot more time. 
-#SBATCH --cpus-per-task=10
-#SBATCH --mem-per-cpu=10GB
+#SBATCH --time=12:00:00 # for the initial run, ~1350 datasets, requires a lot more time. Sometimes sherlock freezes due to memory
+#SBATCH --cpus-per-task=6
+#SBATCH --mem-per-cpu=24GB
 #SBATCH -p russpold,normal,owners
 # Outputs ----------------------------------
 #SBATCH --output=./logs/metadata.%A_%a.out
@@ -13,7 +13,7 @@
 #SBATCH --mail-type=ALL
 # ------------------------------------------
 
-num_cpus=10
+num_cpus=6
 
 # Check if full or minimal run
 if [ -z "$1" ]; then
