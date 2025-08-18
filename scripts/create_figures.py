@@ -17,6 +17,27 @@ output_dir = script_dir / "../output"
 fig_dir = script_dir / "../figures"
 top_n_words = 20
 
+# create combined data
+file_types = ['basics_summary', 'participants', 'counts_summary', 'descriptors', 'events']
+datasets_path = Path(output_dir) / "dataset_output"
+
+for file_type in file_types:
+    csv_files = list(datasets_path.rglob(f"*_{file_type}.csv"))
+    if csv_files:
+        # filter out empty files (5 bytes)
+        non_empty_files = [f for f in csv_files if f.stat().st_size > 5]
+        
+        if non_empty_files:
+            output_file = Path(output_dir) / f"combined_{file_type}.csv"
+            combined_df = pd.concat([pd.read_csv(f) for f in non_empty_files], ignore_index=True)
+            combined_df.to_csv(output_file, index=False)
+            print(f"{file_type}: {len(non_empty_files)} files, {len(combined_df)} rows")
+        else:
+            print(f"{file_type}: No non-empty files found")
+    else:
+        print(f"{file_type}: No files found")
+        
+
 # Ensure output directory exists
 fig_dir.mkdir(parents=True, exist_ok=True)
 
@@ -80,11 +101,11 @@ if __name__ == "__main__":
 
     # Load data files
     print("Loading data files...")
-    all_basics = load_csv_safe("final_basics_summary.csv", output_dir)
-    all_compilesumm = load_csv_safe("final_counts_summary.csv", output_dir)
-    all_descriptors = load_csv_safe("final_descriptors.csv", output_dir)
-    all_participants = load_csv_safe("final_participants.csv", output_dir)
-    all_events = load_csv_safe("final_events.csv", output_dir)
+    all_basics = load_csv_safe("combined_basics_summary.csv", output_dir)
+    all_compilesumm = load_csv_safe("combined_counts_summary.csv", output_dir)
+    all_descriptors = load_csv_safe("combined_descriptors.csv", output_dir)
+    all_participants = load_csv_safe("combined_participants.csv", output_dir)
+    all_events = load_csv_safe("combined_events.csv", output_dir)
 
     # Load OpenNeuro metadata
     print("Loading OpenNeuro metadata...")

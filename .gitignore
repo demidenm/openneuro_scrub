@@ -1,4 +1,6 @@
-
+logs/
+rerun_details/
+old_scripts/
 scripts/__pycache__/access_functions.cpython-39.pyc
 scripts/.DS_Store
 __pycache__/access_functions.cpython-39.pyc
