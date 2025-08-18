@@ -1,5 +1,6 @@
 import concurrent.futures
 import sys
+import os
 import argparse
 import logging
 import ssl
@@ -20,7 +21,7 @@ logging.basicConfig(
 # Parse arguments
 parser = argparse.ArgumentParser(description="Complete Meta Data run for OpenNeuro")
 parser.add_argument("--dir_path", type=str, required=True, help="Directory with sub-directory of OpenNeuro folders")
-parser.add_argument("--out_folder", type=str, required=True, help="Folder to save files, details")
+parser.add_argument("--repo_dir", type=str, required=True, help="Path to repository directory")
 
 
 def fetch_openneuro_metadata():
@@ -58,26 +59,37 @@ def load_completed_datasets(completed_file):
 if __name__ == "__main__":
     parsed_args = parser.parse_args()
     dataset_dir = Path(parsed_args.dir_path)
-    out_folder = Path(parsed_args.out_folder)
-    
+    out_folder = Path(parsed_args.repo_dir)
+    check_out = out_folder / "scripts" / "rerun_details"
+    ran_files = out_folder / "output" / "dataset_output"
+
+
     # Validate inputs
     if not dataset_dir.exists():
         logging.error(f"Dataset directory does not exist: {dataset_dir}")
         sys.exit(1)
     
     # Create output folder if it doesn't exist
-    out_folder.mkdir(parents=True, exist_ok=True)
-
+    check_out.mkdir(parents=True, exist_ok=True)
+    ran_files.mkdir(parents=True, exist_ok=True)
+    
     # Get list of current OpenNeuro data
     logging.info("Fetching OpenNeuro metadata...")
     openneuro_list = fetch_openneuro_metadata()
     logging.info(f"Found {len(openneuro_list)} datasets in OpenNeuro metadata")
 
-    # Load completed datasets
-    completed_file = out_folder / "completed_datasets.tsv"
-    completed_df = load_completed_datasets(completed_file)
+    # get file names Path(ran_files).rglob("*basics_summary.csv").sep("_")[0], study_id is first field
+    # get YYYY-MM-DD file was create
+    # create pd.DataFrame with unqiue study_id and date_created
+    files = Path(ran_files).rglob("*basics_summary.csv")
+    filelist_data = [(f.stem.split("_")[0], datetime.fromtimestamp(os.path.getctime(f)).strftime("%Y-%m-%d")) 
+            for f in files]
+    completed_df = pd.DataFrame(filelist_data, columns=['study_id', 'date_created']).drop_duplicates('study_id')
+
+    #completed_file = out_folder / "completed_datasets.tsv"
+    #completed_df = load_completed_datasets(completed_file)
     
-    logging.info(f"Checking run list versus available OpenNeuro datasets")
+    logging.info(f"Checking ran OpenNeuro datasets versus available OpenNeuro datasets")
     logging.info(f"Dataset directory: {dataset_dir}")
     logging.info(f"Output folder: {out_folder}")
     logging.info(f"Previously completed datasets: {len(completed_df)}")
@@ -87,7 +99,7 @@ if __name__ == "__main__":
     logging.info(f"Missing {len(missing)} datasets to process")
 
     # save list of datasets to run
-    run_dataset_list = out_folder / "datasets_torun.tsv"
+    run_dataset_list = check_out / "datasets_torun.tsv"
     missing["accession_number"].to_csv(run_dataset_list, sep='\t', index=False, header=False)
     logging.info(f"Saved list of datasets to process: {run_dataset_list}")
     

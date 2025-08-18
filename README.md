@@ -2,21 +2,21 @@
 
 ## Overview
 
-This repository contains metadata extraction scripts for analyzing datasets on OpenNeuro.org. As OpenNeuro continues to grow, this information is essential for understanding the available data.
+This repository contains metadata extraction scripts for analyzing datasets on OpenNeuro.org. As OpenNeuro continues to grow, this information is essential for understanding the structures and values.
 
-![openneuro_growth.png](./figures/openneuro_datasets-growth.png)
+![OpenNeuro Growth](./figures/openneuro_datasets-growth.png)
 
-The scripts analyze cloned BIDS (Brain Imaging Data Structure) datasets, extracting, validating and summarizing key metadata components. While they review basic metadata across ALL datasets, they prioritize checks relevant to MRI/fMRI (e.g. BOLD, events files, etc.). Contributions from MEG/EEG/fNIRS/DWI experts are welcome and encouraged.
+The scripts analyze cloned BIDS (Brain Imaging Data Structure) datasets, extracting, validating and summarizing key metadata components. While they review basic metadata across ALL datasets, they prioritize checks relevant to MRI/fMRI (e.g. BOLD, events files, etc.). Contributions from MEG/EEG/fNIRS/DWI experts are welcome and **highly** encouraged.
 
 ## Structure
 
-Modular design consisting of six main components:
+Modular structure consisting of six main components:
 
 1. **Main Processing Module** (`check_files.py`) - Functions for BIDS dataset analysis and extraction
-2. **Dataset List Manager** (`get_runlist.py`) - Based on [repo by Joe Wexler](https://github.com/jbwexler/openneuro_metadata), checks list of OpenNeuro datasets and determines which are not completed in `./scripts/completed_datasets.tsv`. Prevents rerunning entire analysis by cross-referencing `study_id` and `accession_number`
-3. **Metadata Extraction Script** (`run_metacheck.py`) - Python script that clones, extracts and aggregates information for ALL OpenNeuro datasets within a specified directory
-4. **SLURM Submission** (`check_metadata.sbatch`) - Uses `--array` to specify OpenNeuro dataset IDs and iterates over IDs in `./scripts/datasets_torun.tsv`, removing when successfully finished. Tracks complete and failed outputs. More efficient as `BIDSLayout()` takes longer on some datasets - running separate batches (max 25 at a time) prevents time-intensive datasets from blocking others
-5. **Download/Clone Data** (`download_data.py`) - Code to use datalad clone for missing/updated datasets. Note: Chris recommends `datalad install -r ///openneuro` for full cloning, but can be time consuming
+2. **Dataset List Manager** (`get_runlist.py`) - Compares available OpenNeuro datasets (from [Joe Wexler's metadata repo](https://github.com/jbwexler/openneuro_metadata)) against already processed datasets by checking for existing output files in `./output/dataset_output`. Creates `./scripts/rerun_details/datasets_torun.tsv` containing datasets that need processing
+3. **Metadata Extraction Script** (`run_metacheck.py`) - Python script that clones individual datasets using datalad, extracts metadata, and saves results to separate CSV files per dataset
+4. **SLURM Submission** (`check_metadata.sbatch`) - Uses `--array` to process multiple OpenNeuro datasets in parallel, reading dataset IDs from `./scripts/rerun_details/datasets_torun.tsv'. Tracks completion status and failures with timeout handling (max 25 concurrent jobs to prevent resource contention & max 1:57min run time per job)
+5. **Download/Clone Data** (`download_data.py`) - Code to use datalad clone for missing/updated datasets. Note: Chris recommends `datalad install -r ///openneuro` for full cloning, but but I found this can be less efficient on Sherlock as OpenNeuro grow
 6. **Figure Generation Script** (`create_figures.py`) - Combines all data from `./output/dataset_output` into `combined_*.csv` files and generates metadata visualizations
 
 ## Usage
@@ -38,8 +38,8 @@ bash setup.sh
 ```bash
 # within scripts folder
 uv run python get_runlist.py \
-    --dir_path /path/to/openneuro/datasets \
-    --out_folder "`pwd`/rerun_details" 
+    --dir_path "/path/to/openneuro/datasets" \
+    --repo_dir "/path/to/openneuro_scrub" 
 ```
 
 **Run metadata check:**
@@ -97,17 +97,28 @@ uv run python create_figures.py
 
 - **Growth trend analysis** of OpenNeuro datasets and derivatives
 - **File type percentage** across OpenNeuro datasets
-![file_type_percentage.png](./figures/file_type_percentage.png)
+
+![File Type Percentage](./figures/file_type_percentage.png)
+
 - **Subject/task/run distribution**
-![file_counts-subjects.png](./figures/file_counts-subjects.png)
-![file_counts-runs-tasks.png](./figures/file_counts-runs-tasks.png)
+
+![File Counts - Subjects](./figures/file_counts-subjects.png)
+
+![File Counts - Runs/Tasks](./figures/file_counts-runs-tasks.png)
+
 - **Session distribution**
-![file_counts-sessions-minmax.png](./figures/file_counts-sessions-minmax.png)
+
+![File Counts - Sessions](./figures/file_counts-sessions-minmax.png)
+
 - **Word frequency** analysis of descriptor, participant and events files
-![descriptor-freq_top-20words.png](./figures/descriptor-freq_top-20words.png)
-![participant-freq_top-20words.png](./figures/participant-freq_top-20words.png)
-![participantjson-freq_top-20words.png](./figures/participantjson-freq_top-20words.png)
-![events-freq_top-20words.png](./figures/events-freq_top-20words.png)
+
+![Descriptor Frequency](./figures/descriptor-freq_top-20words.png)
+
+![Participant Frequency](./figures/participant-freq_top-20words.png)
+
+![Participant JSON Frequency](./figures/participantjson-freq_top-20words.png)
+
+![Events Frequency](./figures/events-freq_top-20words.png)
 
 ## Main Functions in `check_files.py`
 

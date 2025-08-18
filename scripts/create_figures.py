@@ -117,6 +117,9 @@ if __name__ == "__main__":
     # 1. File Type Percentage Analysis
     print("Creating file type percentage plot...")
     if all_basics is not None:
+        # num of unique data IDs
+        num_uniq_dataset = len(all_basics["study_id"].unique())
+
         # If 'presence' has 'bids_conflict_error', set 'file' to 'bids_error' and 'presence' to 1
         all_basics.loc[all_basics['presence'] == 'bids_conflict_error', 'file'] = 'bids_error'
         all_basics.loc[all_basics['presence'] == 'bids_conflict_error', 'presence'] = 1
@@ -143,7 +146,7 @@ if __name__ == "__main__":
         plt.bar(percent_type['type'], percent_type['percent'], color=colors)
         plt.xlabel('')
         plt.ylabel('Percentage Exists (%)')
-        plt.title('Percentage of Folders Containing Each File Type\nOpenNeuro Datasets')
+        plt.title(f'Percentage of Folders Containing Each File Type\n {num_uniq_dataset} OpenNeuro Datasets')
         plt.xticks(rotation=45, ha='right')
         plt.ylim(0, 100)
         plt.tight_layout()
@@ -162,7 +165,7 @@ if __name__ == "__main__":
         plt.text(1, max_value, f"{', '.join(max_study)} ({max_value})", 
                 ha="center", va="bottom", fontsize=10, color="red")
         plt.ylabel("Subject Counts")
-        plt.title("Distribution of Subjects Across Studies")
+        plt.title(f"Distribution of Subjects Across OpenNeuro Datasets")
         plt.grid(axis="y", linestyle="--", alpha=0.7)
         save_plot("file_counts-subjects.png")
 
@@ -183,7 +186,7 @@ if __name__ == "__main__":
                     ha="center", va="bottom", fontsize=10, color="red")
         
         plt.ylabel("Counts")
-        plt.title("Distribution of Runs & Tasks Across Studies")
+        plt.title("Distribution of Runs & Tasks Across OpenNeuro Datasets")
         plt.grid(axis="y", linestyle="--", alpha=0.7)
         save_plot("file_counts-runs-tasks.png")
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=metadata_check
-#SBATCH --array=1-750%24 # 751-1445
+#SBATCH --array=1-186%25 # index matches rows in datasets_torun.tsv
 #SBATCH --signal=B:USR1@180 # failed 180s / 3min before 2hr time-out for logging
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=6
@@ -97,9 +97,9 @@ else
     echo "SUCCESS: Metadata processing completed for dataset: ${dataset_id}"
     
     # Remove completed dataset from the list
-    if [[ -f "${dataset_list}" ]]; then
-        sed -i "/^${dataset_id}$/d" "${dataset_list}"
-    fi
+    #if [[ -f "${dataset_list}" ]]; then
+    #    sed -i "/^${dataset_id}$/d" "${dataset_list}"
+    #fi
     
     # Log successful completion
     echo -e "${dataset_id}\t${run_id}\t$(date '+%Y-%m-%d %H:%M:%S')\tCOMPLETED" >> "${completed_list}"

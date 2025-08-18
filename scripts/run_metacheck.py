@@ -63,8 +63,13 @@ if __name__ == "__main__":
     target_dir = dataset_dir / openneuro_id
 
     if target_dir.exists():
-        shutil.rmtree(target_dir)
-        print(f"{target_dir} has been removed.")
+        try:
+            shutil.rmtree(target_dir)
+            print(f"{target_dir} has been removed.")
+        except FileNotFoundError:
+            print(f"{target_dir} does not exist (or was already removed).")
+        except PermissionError:
+            print(f"No permission to remove {target_dir}.")
     else:
         print(f"{target_dir} does not exist.")
 
