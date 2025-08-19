@@ -140,8 +140,7 @@ Processes task-specific behavioral event data with metadata validation and long-
 ### `process_study(open_neuro_id, datadir)`
 Master function that orchestrates all analysis for a single dataset with error handling and result aggregation.
 
-### `append_csv(new_df, file_path, index=False, backup=True)`
-CSV appending function with automatic backup creation and validation for data updates, preventing overwrites when failures occur.
+
 
 ## Output Files
 
